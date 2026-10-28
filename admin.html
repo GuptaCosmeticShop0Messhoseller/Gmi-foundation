@@ -1,0 +1,202 @@
+
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GMI Foundation | Admin Panel</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,sans-serif;background:#f4f6fb;color:#172033}
+    header{background:#101b3b;color:white;padding:20px}
+    header h1{margin:0;font-size:23px}
+    header p{margin:7px 0 0;color:#d8def4}
+    main{max-width:1000px;margin:22px auto;padding:0 14px}
+    .card{background:white;padding:20px;border-radius:14px;margin-bottom:18px;box-shadow:0 4px 18px #15264a12}
+    input,select,button{width:100%;padding:12px;margin:7px 0;border:1px solid #d7ddec;border-radius:8px;font-size:15px}
+    button{background:#183b91;color:white;border:0;font-weight:bold;cursor:pointer}
+    button.secondary{background:#e8edfa;color:#183b91}
+    .hidden{display:none}
+    .order{border:1px solid #e0e5ef;border-radius:10px;padding:15px;margin-top:12px}
+    .muted{color:#667085;font-size:14px}
+    .status{font-weight:bold;color:#183b91}
+    .price{font-size:20px;font-weight:bold}
+    .error{color:#b42318}
+    .success{color:#067647}
+  </style>
+</head>
+<body>
+<header>
+  <h1>GMI Foundation</h1>
+  <p>Secure Admin Panel · Order Management</p>
+</header>
+
+<main>
+  <section class="card" id="loginBox">
+    <h2>Admin Login</h2>
+    <p class="muted">Firebase में बनाए गए Admin ईमेल और पासवर्ड से लॉगिन करें।</p>
+    <input id="email" type="email" placeholder="Admin Email" autocomplete="username">
+    <input id="password" type="password" placeholder="Password" autocomplete="current-password">
+    <button id="loginBtn">Login</button>
+    <p id="loginMessage" role="status"></p>
+  </section>
+
+  <section class="card hidden" id="dashboard">
+    <h2>ऑर्डर मैनेजमेंट</h2>
+    <p id="adminEmail" class="muted"></p>
+    <button id="refreshBtn">ऑर्डर Refresh करें</button>
+    <button id="logoutBtn" class="secondary">Logout</button>
+    <p id="message" role="status"></p>
+    <div id="orders"><p>ऑर्डर लोड हो रहे हैं...</p></div>
+  </section>
+</main>
+
+<script type="module">
+  import { initializeApp } from
+    "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+  import {
+    getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
+  } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+  import {
+    getFirestore, collection, getDocs, query, orderBy,
+    doc, updateDoc
+  } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+  // अपनी Firebase Console वाली config यहाँ भरें।
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  const $ = id => document.getElementById(id);
+  const loginBox = $("loginBox");
+  const dashboard = $("dashboard");
+
+  $("loginBtn").addEventListener("click", async () => {
+    $("loginMessage").textContent = "";
+    try {
+      await signInWithEmailAndPassword(
+        auth, $("email").value.trim(), $("password").value
+      );
+    } catch (e) {
+      $("loginMessage").className = "error";
+      $("loginMessage").textContent =
+        "Login नहीं हुआ। ईमेल, पासवर्ड और Firebase config जाँचें।";
+    }
+  });
+
+  $("logoutBtn").addEventListener("click", () => signOut(auth));
+  $("refreshBtn").addEventListener("click", loadOrders);
+
+  onAuthStateChanged(auth, async user => {
+    loginBox.classList.toggle("hidden", !!user);
+    dashboard.classList.toggle("hidden", !user);
+    if (user) {
+      $("adminEmail").textContent = "Login: " + (user.email || "");
+      await loadOrders();
+    } else {
+      $("orders").innerHTML = "";
+    }
+  });
+
+  async function loadOrders() {
+    $("orders").textContent = "ऑर्डर लोड हो रहे हैं...";
+    $("message").textContent = "";
+
+    try {
+      // Firestore Rules केवल अधिकृत Admin को सभी ऑर्डर पढ़ने दें।
+      const result = await getDocs(
+        query(collection(db, "orders"), orderBy("createdAt", "desc"))
+      );
+
+      if (result.empty) {
+        $("orders").textContent = "अभी कोई ऑर्डर नहीं मिला।";
+        return;
+      }
+
+      $("orders").innerHTML = "";
+      result.forEach(snapshot => {
+        const data = snapshot.data();
+        const card = document.createElement("article");
+        card.className = "order";
+
+        const title = document.createElement("h3");
+        title.textContent = "Order #" + snapshot.id.slice(-8);
+        card.appendChild(title);
+
+        const details = [
+          ["ग्राहक", data.customerName],
+          ["फोन", data.phone],
+          ["पता", data.address],
+          ["पिन कोड", data.pincode],
+          ["प्रोडक्ट", data.productName],
+          ["मात्रा", data.quantity],
+          ["पेमेंट", data.paymentMethod],
+          ["ऑर्डर समय", data.createdAt?.toDate?.().toLocaleString("hi-IN") || "—"]
+        ];
+
+        details.forEach(([label, value]) => {
+          const p = document.createElement("p");
+          p.textContent = label + ": " + (value ?? "—");
+          card.appendChild(p);
+        });
+
+        const price = document.createElement("p");
+        price.className = "price";
+        price.textContent = "₹" + (data.total ?? data.price ?? "—");
+        card.appendChild(price);
+
+        const statusLabel = document.createElement("label");
+        statusLabel.textContent = "ऑर्डर स्टेटस";
+        card.appendChild(statusLabel);
+
+        const status = document.createElement("select");
+        ["Pending", "Confirmed", "Shipped", "Delivered", "Cancelled"]
+          .forEach(value => {
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = value;
+            status.appendChild(option);
+          });
+        status.value = [
+          "Pending", "Confirmed", "Shipped", "Delivered", "Cancelled"
+        ].includes(data.status) ? data.status : "Pending";
+        card.appendChild(status);
+
+        const save = document.createElement("button");
+        save.textContent = "स्टेटस सेव करें";
+        save.addEventListener("click", async () => {
+          save.disabled = true;
+          try {
+            await updateDoc(doc(db, "orders", snapshot.id), {
+              status: status.value
+            });
+            $("message").className = "success";
+            $("message").textContent = "ऑर्डर स्टेटस अपडेट हो गया।";
+          } catch (e) {
+            $("message").className = "error";
+            $("message").textContent =
+              "अपडेट नहीं हुआ। Firebase Admin Rules जाँचें।";
+          } finally {
+            save.disabled = false;
+          }
+        });
+        card.appendChild(save);
+        $("orders").appendChild(card);
+      });
+    } catch (e) {
+      $("orders").textContent =
+        "ऑर्डर लोड नहीं हुए। Firebase config, Firestore Rules और orders collection जाँचें।";
+    }
+  }
+</script>
+</body>
+</html>
