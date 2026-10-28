@@ -1,0 +1,108 @@
+
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#991b1b">
+<title>GMI Foundation | Premium Store</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#faf9f7;color:#252525;font-family:Arial,sans-serif}
+header{background:#fff;padding:16px;border-bottom:1px solid #eee;position:sticky;top:0;z-index:2}
+.brand{font-size:24px;font-weight:800;color:#991b1b}
+.tag{font-size:12px;color:#777;margin:5px 0 12px}
+input{width:100%;padding:12px;border:1px solid #ddd;border-radius:9px;font-size:16px}
+main{max-width:850px;margin:auto;padding:16px}
+.hero{background:#3d1015;color:white;padding:24px 18px;border-radius:15px;margin-bottom:22px}
+.hero h2{font-size:26px;margin:0 0 10px}
+.hero p{color:#f3dfe0;font-size:14px;line-height:1.5}
+h3{font-size:19px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.card{background:white;border:1px solid #eee;border-radius:13px;padding:10px;min-width:0}
+.photo{height:105px;border-radius:9px;background:#f8e9e9;display:grid;place-items:center;font-size:42px}
+.card h4{margin:10px 0 6px;font-size:15px}
+.price{font-weight:bold;color:#991b1b}
+button{width:100%;border:0;border-radius:8px;padding:11px;margin-top:8px;background:#991b1b;color:white;font-weight:bold;font-size:14px}
+.alt{background:#292929}
+section.panel{background:white;padding:15px;border:1px solid #eee;border-radius:13px;margin-top:20px}
+#cartItems{font-size:14px;line-height:1.9}
+label{display:block;font-size:13px;margin-top:10px}
+footer{text-align:center;color:#777;font-size:12px;padding:25px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">GMI FOUNDATION</div>
+  <div class="tag">PREMIUM BEAUTY · FASHION · LIFESTYLE</div>
+  <input id="search" placeholder="प्रोडक्ट खोजें..." oninput="render()">
+</header>
+<main>
+  <div class="hero">
+    <h2>आपकी पसंद, हमारा भरोसा।</h2>
+    <p>अपनी रोज़मर्रा की पसंदीदा चीज़ें आसानी से खोजें और ऑर्डर करें।</p>
+    <button onclick="document.getElementById('catalog').scrollIntoView({behavior:'smooth'})">अभी खरीदारी करें</button>
+  </div>
+
+  <h3 id="catalog">हमारे प्रोडक्ट</h3>
+  <div class="grid" id="products"></div>
+
+  <section class="panel" id="cart">
+    <h3>आपका कार्ट (<span id="count">0</span>)</h3>
+    <div id="cartItems">कार्ट अभी खाली है।</div>
+    <p><b id="total">कुल: ₹0</b></p>
+    <button onclick="checkout()">Buy Now / Checkout</button>
+  </section>
+
+  <section class="panel" id="checkout" hidden>
+    <h3>ऑर्डर की जानकारी</h3>
+    <form id="orderForm">
+      <label>पूरा नाम<input name="customer" required></label>
+      <label>मोबाइल नंबर<input name="phone" type="tel" pattern="[0-9]{10}" maxlength="10" required></label>
+      <label>पूरा पता<input name="address" required></label>
+      <label>पिन कोड<input name="pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required></label>
+      <p>भुगतान: Cash on Delivery (COD)</p>
+      <button type="submit">ऑर्डर सबमिट करें</button>
+    </form>
+    <div id="result" aria-live="polite"></div>
+  </section>
+</main>
+<footer>© GMI Foundation</footer>
+<script>
+const products=[
+{id:1,name:"फैशन चूड़ियाँ",price:99,emoji:"💗"},
+{id:2,name:"नेल पॉलिश",price:49,emoji:"💅"},
+{id:3,name:"ब्यूटी केयर",price:149,emoji:"🧴"},
+{id:4,name:"फैशन एक्सेसरी",price:79,emoji:"✨"}
+];
+let cart={};
+function render(){
+const q=document.getElementById('search').value.toLowerCase();
+document.getElementById('products').innerHTML=products.filter(p=>p.name.toLowerCase().includes(q)).map(p=>`
+<div class="card"><div class="photo">${p.emoji}</div><h4>${p.name}</h4><div class="price">₹${p.price}</div>
+<button onclick="buy(${p.id})">Buy Now</button><button class="alt" onclick="add(${p.id})">Add to Cart</button></div>`).join('');
+updateCart();
+}
+function add(id){cart[id]=(cart[id]||0)+1;updateCart()}
+function buy(id){add(id);checkout()}
+function updateCart(){
+const chosen=products.filter(p=>cart[p.id]);
+document.getElementById('count').textContent=Object.values(cart).reduce((a,b)=>a+b,0);
+document.getElementById('cartItems').innerHTML=chosen.length?chosen.map(p=>`${p.name} × ${cart[p.id]} — ₹${p.price*cart[p.id]}`).join('<br>'):'कार्ट अभी खाली है।';
+document.getElementById('total').textContent='कुल: ₹'+chosen.reduce((s,p)=>s+p.price*cart[p.id],0);
+}
+function checkout(){
+if(!Object.keys(cart).length){alert('पहले प्रोडक्ट चुनें।');return}
+document.getElementById('checkout').hidden=false;
+document.getElementById('checkout').scrollIntoView({behavior:'smooth'});
+}
+document.getElementById('orderForm').addEventListener('submit',e=>{
+e.preventDefault();
+const data=new FormData(e.target);
+const orderNo='GMI'+Date.now().toString().slice(-8);
+document.getElementById('result').textContent='ऑर्डर नंबर '+orderNo+' — यह केवल डेमो पुष्टि है। आपका ऑर्डर अभी सर्वर पर सेव नहीं हुआ है।';
+});
+render();
+</script>
+</body>
+</html>
